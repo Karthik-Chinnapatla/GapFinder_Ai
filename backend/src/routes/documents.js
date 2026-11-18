@@ -6,7 +6,7 @@ const DocumentChunk = require('../models/DocumentChunk');
 const Subject = require('../models/Subject');
 const Chapter = require('../models/Chapter');
 const { requireAuth } = require('../middleware/auth');
-const { upload } = require('../middleware/upload');
+const { upload, buildStoredFilename } = require('../middleware/upload');
 const { indexDocumentInAI, semanticSearchInAI } = require('../services/aiClient');
 
 const router = express.Router();
@@ -37,13 +37,13 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
     }
     const { subjectId, chapterId, docCategory } = req.body || {};
     if (!subjectId) {
-      fs.unlink(req.file.path, () => {});
+      if (req.file.path) fs.unlink(req.file.path, () => {});
       return res.status(400).json({ success: false, message: 'Please select a subject for this study material.' });
     }
 
     const subject = await Subject.findOne({ _id: subjectId, userId: req.userId });
     if (!subject) {
-      fs.unlink(req.file.path, () => {});
+      if (req.file.path) fs.unlink(req.file.path, () => {});
       return res.status(404).json({ success: false, message: 'Subject not found.' });
     }
 
@@ -53,13 +53,18 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
     }
 
     const ext = path.extname(req.file.originalname).toLowerCase().replace('.', '');
+    const storedName = req.file.filename || buildStoredFilename(req, req.file.originalname);
+    const filePath = req.file.path || `memory://${storedName}`;
+    const fileBuffer = req.file.buffer || (req.file.path && fs.existsSync(req.file.path) ? fs.readFileSync(req.file.path) : null);
+    const fileContentBase64 = fileBuffer ? fileBuffer.toString('base64') : undefined;
+
     const doc = await Document.create({
       userId: req.userId,
       subjectId: subject._id,
       chapterId: chapter ? chapter._id : null,
       originalName: req.file.originalname,
-      storedName: req.file.filename,
-      filePath: req.file.path,
+      storedName,
+      filePath,
       mimeType: req.file.mimetype,
       fileType: ext,
       fileSize: req.file.size,
@@ -78,6 +83,7 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
         chapterTitle: chapter ? chapter.title : '',
         documentName: doc.originalName,
         filePath: doc.filePath,
+        fileContentBase64,
         fileType: doc.fileType,
         isDemo: Boolean(req.user.isDemo),
       });
@@ -232,7 +238,7 @@ router.delete('/:id', async (req, res, next) => {
       Document.deleteOne({ _id: doc._id, userId: req.userId }),
       DocumentChunk.deleteMany({ documentId: doc._id, userId: req.userId }),
     ]);
-    if (doc.filePath && fs.existsSync(doc.filePath) && !doc.isDemo) {
+    if (doc.filePath && !doc.filePath.startsWith('memory://') && fs.existsSync(doc.filePath) && !doc.isDemo) {
       fs.unlink(doc.filePath, () => {});
     }
     return res.json({ success: true, message: 'Study material and its indexed embeddings deleted.' });

@@ -1,19 +1,35 @@
 const mongoose = require('mongoose');
 
+let cachedPromise = null;
+
 async function connectDB() {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) {
-    throw new Error('MONGODB_URI is not configured in backend/.env');
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
   }
 
-  mongoose.set('strictQuery', true);
-  await mongoose.connect(uri, {
-    dbName: 'gapfinder_db',
-    serverSelectionTimeoutMS: 10000,
-  });
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error('MONGODB_URI is not configured in environment variables.');
+  }
 
-  console.log(`[MongoDB] Connected to database: ${mongoose.connection.name}`);
-  return mongoose.connection;
+  if (!cachedPromise) {
+    mongoose.set('strictQuery', true);
+    cachedPromise = mongoose
+      .connect(uri, {
+        dbName: 'gapfinder_db',
+        serverSelectionTimeoutMS: 10000,
+      })
+      .then((conn) => {
+        console.log(`[MongoDB] Connected to database: ${conn.connection.name}`);
+        return conn.connection;
+      })
+      .catch((err) => {
+        cachedPromise = null;
+        throw err;
+      });
+  }
+
+  return cachedPromise;
 }
 
 module.exports = { connectDB };

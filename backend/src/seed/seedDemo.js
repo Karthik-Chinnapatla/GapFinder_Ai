@@ -13,7 +13,7 @@ const StudentAnswer = require('../models/StudentAnswer');
 const TopicPerformance = require('../models/TopicPerformance');
 const RevisionTask = require('../models/RevisionTask');
 const ChatHistory = require('../models/ChatHistory');
-const { UPLOAD_DIR } = require('../middleware/upload');
+const { UPLOAD_DIR, IS_SERVERLESS } = require('../middleware/upload');
 const { indexDocumentInAI } = require('../services/aiClient');
 const { recalculateTopicDiagnosis } = require('../services/diagnosisEngine');
 const { syncRevisionPlanForSubject } = require('../services/revisionEngine');
@@ -213,13 +213,16 @@ async function ensureDemoAccountSeeded() {
     topicsByChapterTitle.set(item.title, topic);
   }
 
-  // 3. Write real sample study files to disk & index them through RAG
+  // 3. Index sample study files through RAG (in-memory Base64 on serverless, disk locally)
   const docsByChapterTitle = new Map();
   for (const sf of SAMPLE_FILES) {
     const ch = chaptersByTitle.get(sf.chapterTitle);
     const storedName = `demo_${sf.filename}`;
-    const fullPath = path.join(UPLOAD_DIR, storedName);
-    fs.writeFileSync(fullPath, sf.content, 'utf-8');
+    const fullPath = IS_SERVERLESS ? `memory://${storedName}` : path.join(UPLOAD_DIR, storedName);
+    if (!IS_SERVERLESS) {
+      fs.writeFileSync(fullPath, sf.content, 'utf-8');
+    }
+    const fileContentBase64 = Buffer.from(sf.content, 'utf-8').toString('base64');
 
     const doc = await Document.create({
       userId: demoUser._id,
@@ -245,6 +248,7 @@ async function ensureDemoAccountSeeded() {
         chapterTitle: sf.chapterTitle,
         documentName: doc.originalName,
         filePath: fullPath,
+        fileContentBase64,
         fileType: 'txt',
         isDemo: true,
       });

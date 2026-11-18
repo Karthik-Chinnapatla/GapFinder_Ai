@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const AI_BASE = () => process.env.AI_SERVICE_URL || 'http://127.0.0.1:8001';
+const AI_BASE = () => (process.env.AI_SERVICE_URL || 'http://127.0.0.1:8001').replace(/\/+$/, '');
 
 const client = axios.create({
   timeout: 45000,

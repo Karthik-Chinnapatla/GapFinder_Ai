@@ -1,3 +1,4 @@
+import io
 import os
 import re
 from typing import List, Dict, Optional, Tuple
@@ -27,13 +28,16 @@ def _detect_heading(line: str) -> Optional[str]:
     return None
 
 
-def extract_document(file_path: str, file_type: str) -> Tuple[List[Dict], Optional[int], int]:
+def extract_document(
+    file_path: Optional[str], file_type: str, file_bytes: Optional[bytes] = None
+) -> Tuple[List[Dict], Optional[int], int]:
     """
     Returns (sections, page_count, total_chars).
     Each section dict: { "text": str, "page_number": Optional[int], "section_title": str }
     Never fabricates page numbers: returns None for docx/txt.
+    Supports both in-memory bytes (for serverless deployments) and local file paths.
     """
-    if not os.path.exists(file_path):
+    if file_bytes is None and (not file_path or not os.path.exists(file_path)):
         raise FileNotFoundError(f"Uploaded file not found on disk: {file_path}")
 
     ft = file_type.lower().strip(".")
@@ -41,7 +45,7 @@ def extract_document(file_path: str, file_type: str) -> Tuple[List[Dict], Option
     page_count: Optional[int] = None
 
     if ft == "pdf":
-        reader = PdfReader(file_path)
+        reader = PdfReader(io.BytesIO(file_bytes) if file_bytes is not None else file_path)
         page_count = len(reader.pages)
         current_heading = ""
         for idx, page in enumerate(reader.pages, start=1):
@@ -64,7 +68,7 @@ def extract_document(file_path: str, file_type: str) -> Tuple[List[Dict], Option
             )
 
     elif ft == "docx":
-        doc = DocxDocument(file_path)
+        doc = DocxDocument(io.BytesIO(file_bytes) if file_bytes is not None else file_path)
         current_heading = "Introduction"
         buffer: List[str] = []
         for para in doc.paragraphs:
@@ -111,8 +115,11 @@ def extract_document(file_path: str, file_type: str) -> Tuple[List[Dict], Option
                 )
 
     elif ft == "txt":
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-            raw = f.read()
+        if file_bytes is not None:
+            raw = file_bytes.decode("utf-8", errors="ignore")
+        else:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                raw = f.read()
         cleaned = _clean_text(raw)
         current_heading = "Overview"
         buffer: List[str] = []

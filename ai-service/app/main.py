@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
@@ -33,7 +34,8 @@ class IndexDocumentRequest(BaseModel):
     chapterId: Optional[str] = None
     chapterTitle: Optional[str] = ""
     documentName: str
-    filePath: str
+    filePath: Optional[str] = None
+    fileContentBase64: Optional[str] = None
     fileType: str
     isDemo: bool = False
 
@@ -109,7 +111,8 @@ def index_document(req: IndexDocumentRequest):
             {"$set": {"processingStatus": "processing", "errorMessage": ""}},
         )
 
-        sections, page_count, total_chars = extract_document(req.filePath, req.fileType)
+        file_bytes = base64.b64decode(req.fileContentBase64) if req.fileContentBase64 else None
+        sections, page_count, total_chars = extract_document(req.filePath, req.fileType, file_bytes=file_bytes)
         if not sections or total_chars < 15:
             raise ValueError("No readable text could be extracted from this file.")
 

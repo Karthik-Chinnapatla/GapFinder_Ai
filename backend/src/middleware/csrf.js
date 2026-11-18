@@ -36,10 +36,12 @@ function issueCsrfToken(req, res) {
   const signature = signTokenValue(rawToken);
   const cookieValue = `${rawToken}.${signature}`;
 
+  const isProd = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
+
   res.cookie(CSRF_COOKIE_NAME, cookieValue, {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    sameSite: isProd ? 'none' : 'lax',
+    secure: isProd,
     path: '/',
     maxAge: 60 * 60 * 1000, // 1 hour
   });

@@ -20,10 +20,22 @@ const dashboardRoutes = require('./routes/dashboard');
 
 const app = express();
 
+const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      const cleanOrigin = origin.replace(/\/+$/, '');
+      if (allowedOrigins.includes(cleanOrigin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
   })
@@ -31,6 +43,24 @@ app.use(
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
+
+// Ensure MongoDB connection is ready on every request (critical for Vercel serverless)
+app.use(async (_req, _res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/', (_req, res) => {
+  res.json({
+    success: true,
+    service: 'gapfinder-backend',
+    status: 'running',
+  });
+});
 
 app.get('/api/health', async (_req, res) => {
   const ai = await checkAiHealth();
@@ -62,13 +92,17 @@ app.use(errorHandler);
 
 const PORT = Number(process.env.PORT) || 5000;
 
-connectDB()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`[Backend] GapFinder AI API running on http://127.0.0.1:${PORT}`);
+if (require.main === module) {
+  connectDB()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`[Backend] GapFinder AI API running on http://127.0.0.1:${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error('[Backend] Failed to connect to MongoDB Atlas:', err.message);
+      process.exit(1);
     });
-  })
-  .catch((err) => {
-    console.error('[Backend] Failed to connect to MongoDB Atlas:', err.message);
-    process.exit(1);
-  });
+}
+
+module.exports = app;
