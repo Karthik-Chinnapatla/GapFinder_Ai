@@ -43,6 +43,10 @@ GapFinder AI is a full-stack AI-powered educational diagnostic platform built wi
 
 GapFinder AI works out of the box with its local hybrid semantic embeddings and source-grounded RAG engine. To enable Gemini, OpenAI, or Groq generation, set `GEMINI_API_KEY`, `OPENAI_API_KEY`, or `GROQ_API_KEY` in `ai-service/.env` and restart the AI service.
 
-## Sample Student Workspace
+## Live App & Demo Login Credentials
 
-Click **"Try Sample Student Account"** on the login page to explore a complete Data Structures (`CS201`) student profile with 7 syllabus chapters, 6 indexed study materials, 3 historical assessments, real topic mastery progression (e.g. Linked Lists `33% -> 54% -> 78%`), a critical gap in Binary Trees & BSTs, an evidence-guardrailed Insufficient Data topic (Sorting Algorithms), and an adaptive Personalized Revision Plan so students can see how GapFinder catches important missed concepts.
+- **Live Website:** https://gap-finder-ai-vs6q.vercel.app
+- **Email:** `demo.student@gapfinder.ai`
+- **Password:** `GapFinderDemo2026!`
+
+You can sign in directly with the credentials above or click **"Try Sample Student Account"** on the login page to explore a complete Data Structures (`CS201`) student profile with 7 syllabus chapters, 6 indexed study materials, 3 historical assessments, real topic mastery progression (e.g. Linked Lists `33% -> 54% -> 78%`), a critical gap in Binary Trees & BSTs, an evidence-guardrailed Insufficient Data topic (Sorting Algorithms), and an adaptive Personalized Revision Plan so students can see how GapFinder catches important missed concepts.
